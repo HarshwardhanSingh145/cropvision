@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+*.db
+.DS_Store
+cropvision_app_package.zip
+cropvision_effnet.pth

@@ -1,0 +1,4 @@
+Architecture,Accuracy (%),Macro-F1 (%),Train Time (sec),Inference (ms/img),Model Size (MB)
+MobileNetV3,89.0,89.16,10.6,6.52,16.0
+ResNet50,88.0,88.4,12.1,8.59,89.7
+EfficientNet-B0,93.0,93.0,8.2,6.71,15.3

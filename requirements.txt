@@ -1,0 +1,15 @@
+torch
+torchvision
+timm
+segmentation-models-pytorch
+grad-cam
+opencv-python-headless
+Pillow
+pandas
+numpy
+streamlit
+requests
+fastapi
+uvicorn
+python-multipart
+
