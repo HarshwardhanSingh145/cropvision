@@ -107,7 +107,7 @@ def render_history_table(limit=15):
             records, 
             columns=["Timestamp", "Filename", "Disease", "Confidence (%)", "Severity (%)", "Stage", "Status"]
         )
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width="stretch")
     else:
         st.info("No predictions recorded yet.")
 
@@ -120,22 +120,49 @@ tab_diagnose, tab_benchmark, tab_history = st.tabs([
     "Prediction History"
 ])
 
+crop_options = [
+    "Auto-Detect (All 14 Crops)",
+    "Apple",
+    "Blueberry",
+    "Cherry",
+    "Corn (Maize)",
+    "Grape",
+    "Orange",
+    "Peach",
+    "Pepper Bell",
+    "Potato",
+    "Raspberry",
+    "Soybean",
+    "Squash",
+    "Strawberry",
+    "Tomato"
+]
+
 with tab_diagnose:
     st.subheader("Upload Crop Leaf Image")
-    st.write("Upload a leaf image (JPG/PNG) to run inference:")
+    st.write("Select the crop family or keep Auto-Detect, then upload your leaf photograph:")
     
-    uploaded_file = st.file_uploader(
-        "Choose a leaf image file", 
-        type=["jpg", "jpeg", "png"],
-        key="leaf_uploader"
-    )
+    col_u1, col_u2 = st.columns([1, 2])
+    with col_u1:
+        selected_crop = st.selectbox(
+            "Plant / Crop Domain",
+            crop_options,
+            index=0,
+            help="Locking to the specific crop variety ensures targeted diagnostic accuracy."
+        )
+    with col_u2:
+        uploaded_file = st.file_uploader(
+            "Choose a leaf image file", 
+            type=["jpg", "jpeg", "png", "webp"],
+            key="leaf_uploader"
+        )
 
     if uploaded_file is not None:
         target_bytes = uploaded_file.getvalue()
         filename = uploaded_file.name
 
-        with st.spinner("Processing image through models..."):
-            result = analyze_crop_leaf(target_bytes, filename=filename)
+        with st.spinner("Processing image through neural pipeline..."):
+            result = analyze_crop_leaf(target_bytes, filename=filename, crop_filter=selected_crop)
 
         if not result["valid"]:
             st.markdown(f"""
@@ -144,17 +171,40 @@ with tab_diagnose:
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.markdown(f"""
-            <div class="diagnosis-header">
-                <div class="diagnosis-title-tag">Diagnosis Result</div>
-                <div class="diagnosis-main-name">{result['disease']}</div>
-                <div class="diagnosis-meta">
-                    <b>Confidence:</b> {result['confidence']}% &nbsp;|&nbsp; 
-                    <b>Severity:</b> {result['severity_pct']}% ({result['severity_stage']} Stage) &nbsp;|&nbsp; 
-                    <b>Status:</b> {result['status']}
+            if "Uncertain" in result["status"]:
+                st.markdown(f"""
+                <div class="diagnosis-header" style="border-color: #d97706;">
+                    <div class="diagnosis-title-tag" style="color: #fbbf24;">Low Confidence Flag ({result['confidence']}%)</div>
+                    <div class="diagnosis-main-name" style="color: #fbbf24;">Suspected: {result['disease']}</div>
+                    <div class="diagnosis-meta">
+                        <b>Status:</b> {result['status']} &nbsp;|&nbsp; 
+                        <b>Severity:</b> {result['severity_pct']}% ({result['severity_stage']} Stage)
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
+            elif "Healthy" in result["status"]:
+                st.markdown(f"""
+                <div class="diagnosis-header" style="border-color: #10b981;">
+                    <div class="diagnosis-title-tag" style="color: #34d399;">Diagnosis Result</div>
+                    <div class="diagnosis-main-name" style="color: #34d399;">{result['disease']}</div>
+                    <div class="diagnosis-meta">
+                        <b>Confidence:</b> {result['confidence']}% &nbsp;|&nbsp; 
+                        <b>Status:</b> Verified Healthy Foliage
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="diagnosis-header">
+                    <div class="diagnosis-title-tag">Diagnosis Result</div>
+                    <div class="diagnosis-main-name">{result['disease']}</div>
+                    <div class="diagnosis-meta">
+                        <b>Confidence:</b> {result['confidence']}% &nbsp;|&nbsp; 
+                        <b>Severity:</b> {result['severity_pct']}% ({result['severity_stage']} Stage) &nbsp;|&nbsp; 
+                        <b>Status:</b> {result['status']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Predicted Disease", result["disease"])
@@ -165,19 +215,19 @@ with tab_diagnose:
             if "Uncertain" in result["status"]:
                 st.markdown(f"""
                 <div class="status-card status-warning">
-                    {result['status']}: Low confidence score. Review by a plant pathologist is recommended.
+                    {result['status']}: Confidence is below 45%. If this is a specific crop, please select the exact crop type from the dropdown above.
                 </div>
                 """, unsafe_allow_html=True)
             elif "Healthy" in result["status"]:
                 st.markdown(f"""
                 <div class="status-card status-success">
-                    {result['status']}: No active disease lesions found. Plant tissue is healthy.
+                    {result['status']}: Foliage tissue is confirmed healthy with no active necrotic lesions.
                 </div>
                 """, unsafe_allow_html=True)
             else:
                 st.markdown(f"""
                 <div class="status-card status-success">
-                    {result['status']}: Disease detected and logged to database.
+                    {result['status']}: Pathological lesions isolated and logged to database.
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -193,29 +243,29 @@ with tab_diagnose:
             c1.image(
                 Image.open(io.BytesIO(target_bytes)), 
                 caption="1. Original Upload", 
-                use_container_width=True
+                width="stretch"
             )
             c2.image(
                 base64.b64decode(result["yolo_img"]), 
-                caption="2. Lesion Localization", 
-                use_container_width=True
+                caption=f"2. Lesion Localization ({result['spots_detected']} Spots)", 
+                width="stretch"
             )
             c3.image(
                 base64.b64decode(result["gradcam_img"]), 
                 caption="3. Grad-CAM Attention Map", 
-                use_container_width=True
+                width="stretch"
             )
             c4.image(
                 base64.b64decode(result["seg_img"]), 
                 caption=f"4. Lesion Segmentation ({result['severity_pct']}%)", 
-                use_container_width=True
+                width="stretch"
             )
 
             st.divider()
             st.subheader("Recent Predictions (Database)")
             render_history_table(limit=5)
     else:
-        st.info("Upload a leaf image above to view diagnosis and segmentation results.")
+        st.info("Select a crop variety (optional) and upload a leaf image above to view diagnosis and segmentation results.")
         st.divider()
         st.subheader("Recent Predictions (Database)")
         render_history_table(limit=5)
@@ -225,7 +275,7 @@ with tab_benchmark:
     st.write("Performance evaluation of transfer learning backbones tested on the dataset:")
     try:
         df_bench = pd.read_csv("cnn_benchmark.csv")
-        st.dataframe(df_bench, use_container_width=True)
+        st.dataframe(df_bench, width="stretch")
     except Exception as e:
         st.warning(f"Could not load benchmark data: {e}")
 
