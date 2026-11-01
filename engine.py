@@ -295,3 +295,11 @@ def get_prediction_history(limit=15):
             LIMIT ?
         """, (limit,))
         return cursor.fetchall()
+
+if __name__ == "__main__":
+    import runpy
+    import os
+    app_script = os.path.join(os.path.dirname(__file__), "app.py")
+    if os.path.exists(app_script):
+        runpy.run_path(app_script, run_name="__main__")
+
