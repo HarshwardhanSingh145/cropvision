@@ -139,6 +139,24 @@ crop_options = [
 ]
 
 with tab_diagnose:
+    # 2 Important Disclaimers
+    st.markdown("""
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; margin-bottom: 22px;">
+        <div style="background: #0f172a; padding: 14px 18px; border-radius: 8px; border: 1px solid #1e293b; border-left: 4px solid #38bdf8;">
+            <div style="font-weight: 700; color: #38bdf8; font-size: 14px; margin-bottom: 6px;">Important Industry Scope</div>
+            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+                This system is exclusively trained for <b>14 agricultural field & orchard crops</b> (Apple, Tomato, Potato, Corn, Grape, Bell Pepper, Peach, Strawberry, Cherry, Squash, Soybean, Blueberry, Raspberry, Orange). <b>Do not use on indoor houseplants, ornamental plants, or succulents.</b>
+            </div>
+        </div>
+        <div style="background: #0f172a; padding: 14px 18px; border-radius: 8px; border: 1px solid #1e293b; border-left: 4px solid #10b981;">
+            <div style="font-weight: 700; color: #10b981; font-size: 14px; margin-bottom: 6px;">Photo Upload Guidelines</div>
+            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+                Upload a <b>front-facing photograph with clear, sharp edges</b> and balanced natural lighting. Ensure the single leaf occupies the primary area of the photo. Avoid heavy shadows, extreme angles, or blurry captures.
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.subheader("Upload Crop Leaf Image")
     st.write("Select the crop family or keep Auto-Detect, then upload your leaf photograph:")
     
@@ -165,11 +183,19 @@ with tab_diagnose:
             result = analyze_crop_leaf(target_bytes, filename=filename, crop_filter=selected_crop)
 
         if not result["valid"]:
-            st.markdown(f"""
-            <div class="status-card status-danger">
-                Image Quality Check Failed: {result['reason']}
-            </div>
-            """, unsafe_allow_html=True)
+            if result.get("unsupported_leaf"):
+                st.markdown(f"""
+                <div class="status-card status-danger" style="background-color: #450a0a; border-color: #ef4444; color: #fef2f2; padding: 18px 22px;">
+                    <div style="font-size: 18px; font-weight: 800; color: #f87171; margin-bottom: 8px;">Unsupported Plant / Indoor Leaf Detected</div>
+                    <div style="font-size: 14px; line-height: 1.6;">{result['reason']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="status-card status-danger">
+                    Image Quality Check Failed: {result['reason']}
+                </div>
+                """, unsafe_allow_html=True)
         else:
             if "Uncertain" in result["status"]:
                 st.markdown(f"""

@@ -129,6 +129,25 @@ def analyze_crop_leaf(image_bytes, filename="leaf_image.jpg", crop_filter="Auto-
     input_tensor = inference_transforms(pil_img).unsqueeze(0).to(device)
     with torch.no_grad():
         logits = model_clf(input_tensor)[0]
+        global_probs = F.softmax(logits, dim=0).cpu().numpy()
+
+    # Out-of-Distribution (OOD) / Indoor Plant Rejection Gate
+    top2_idx = np.argsort(global_probs)[::-1][:2]
+    global_max_prob = float(global_probs[top2_idx[0]] * 100.0)
+    top2_margin = float((global_probs[top2_idx[0]] - global_probs[top2_idx[1]]) * 100.0)
+    max_logit = float(logits.max().item())
+
+    # Reject if the leaf does not strongly match any of the 14 trained agricultural crop families
+    if global_max_prob < 50.0 or top2_margin < 20.0 or max_logit < 4.2:
+        return {
+            "valid": False,
+            "unsupported_leaf": True,
+            "reason": (
+                "Untrained / Indoor Plant Detected. This leaf does not match any of the 14 supported agricultural crops "
+                "(Apple, Tomato, Potato, Corn, Grape, Pepper Bell, Peach, Strawberry, Cherry, Squash, Soybean, Blueberry, Raspberry, Orange). "
+                "Please upload a clear photograph of a supported agricultural crop."
+            )
+        }
 
     # Crop Domain Filtering (allows user to lock to specific crop e.g. Apple, Tomato)
     active_indices = list(range(len(class_names)))
